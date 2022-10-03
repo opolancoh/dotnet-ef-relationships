@@ -17,6 +17,39 @@ public class BooksController : ControllerBase
         _context = context;
     }
 
+    [HttpPost]
+    public async Task<ActionResult<BookDto>> Add(BookForAddUpdateDto item)
+    {
+        var book = new Book
+        {
+            Id = new Guid(),
+            Title = item.Title,
+            PublishedOn = item.PublishedOn,
+            Image = new BookImage
+            {
+                Url = item.Image.Url,
+                Alt = item.Image.Alt
+            }
+        };
+
+        _context.Books.Add(book);
+        await _context.SaveChangesAsync();
+
+        var dto = new BookDto()
+        {
+            Id = book.Id,
+            Title = book.Title,
+            PublishedOn = book.PublishedOn,
+            Image = new BookImageForAddUpdateDto
+            {
+                Url = book.Image.Url,
+                Alt = book.Image.Alt
+            }
+        };
+
+        return CreatedAtAction(nameof(GetById), new {id = dto.Id}, dto);
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<BookDto>>> Get()
     {
@@ -63,6 +96,21 @@ public class BooksController : ControllerBase
 
         return item;
     }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Remove(Guid id)
+    {
+        var item = await _context.Books.FindAsync(id);
+        if (item == null)
+        {
+            return NotFound();
+        }
+
+        _context.Books.Remove(item);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
     
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(Guid id, BookForAddUpdateDto item)
@@ -98,54 +146,6 @@ public class BooksController : ControllerBase
                 throw;
             }
         }
-
-        return NoContent();
-    }
-    
-    [HttpPost]
-    public async Task<ActionResult<BookDto>> Add(BookForAddUpdateDto item)
-    {
-        var book = new Book
-        {
-            Id = new Guid(),
-            Title = item.Title,
-            PublishedOn = item.PublishedOn,
-            Image = new BookImage
-            {
-                Url = item.Image.Url,
-                Alt = item.Image.Alt
-            }
-        };
-
-        _context.Books.Add(book);
-        await _context.SaveChangesAsync();
-
-        var dto = new BookDto()
-        {
-            Id = book.Id,
-            Title = book.Title,
-            PublishedOn = book.PublishedOn,
-            Image = new BookImageForAddUpdateDto
-            {
-                Url = book.Image.Url,
-                Alt = book.Image.Alt
-            }
-        };
-
-        return CreatedAtAction(nameof(GetById), new {id = dto.Id}, dto);
-    }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Remove(Guid id)
-    {
-        var item = await _context.Books.FindAsync(id);
-        if (item == null)
-        {
-            return NotFound();
-        }
-
-        _context.Books.Remove(item);
-        await _context.SaveChangesAsync();
 
         return NoContent();
     }
