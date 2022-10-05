@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EntityFrameworkRelationships.Migrations
 {
     [DbContext(typeof(BookContext))]
-    [Migration("20221002210539_OneToManyRelationship")]
-    partial class OneToManyRelationship
+    [Migration("20221004175438_ManyToManyRelationship")]
+    partial class ManyToManyRelationship
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -23,6 +23,25 @@ namespace EntityFrameworkRelationships.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("EntityFrameworkRelationships.Models.Author", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Authors");
+                });
 
             modelBuilder.Entity("EntityFrameworkRelationships.Models.Book", b =>
                 {
@@ -40,6 +59,21 @@ namespace EntityFrameworkRelationships.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Books");
+                });
+
+            modelBuilder.Entity("EntityFrameworkRelationships.Models.BookAuthor", b =>
+                {
+                    b.Property<Guid>("BookId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("BookId", "AuthorId");
+
+                    b.HasIndex("AuthorId");
+
+                    b.ToTable("BookAuthors");
                 });
 
             modelBuilder.Entity("EntityFrameworkRelationships.Models.BookImage", b =>
@@ -83,6 +117,25 @@ namespace EntityFrameworkRelationships.Migrations
                     b.ToTable("Reviews");
                 });
 
+            modelBuilder.Entity("EntityFrameworkRelationships.Models.BookAuthor", b =>
+                {
+                    b.HasOne("EntityFrameworkRelationships.Models.Author", "Author")
+                        .WithMany("BooksLink")
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("EntityFrameworkRelationships.Models.Book", "Book")
+                        .WithMany("AuthorsLink")
+                        .HasForeignKey("BookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Book");
+                });
+
             modelBuilder.Entity("EntityFrameworkRelationships.Models.BookImage", b =>
                 {
                     b.HasOne("EntityFrameworkRelationships.Models.Book", "Book")
@@ -105,8 +158,15 @@ namespace EntityFrameworkRelationships.Migrations
                     b.Navigation("Book");
                 });
 
+            modelBuilder.Entity("EntityFrameworkRelationships.Models.Author", b =>
+                {
+                    b.Navigation("BooksLink");
+                });
+
             modelBuilder.Entity("EntityFrameworkRelationships.Models.Book", b =>
                 {
+                    b.Navigation("AuthorsLink");
+
                     b.Navigation("Image")
                         .IsRequired();
 

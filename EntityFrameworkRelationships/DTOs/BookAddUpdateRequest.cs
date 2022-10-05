@@ -1,8 +1,9 @@
 namespace EntityFrameworkRelationships.DTOs;
 
-public class BookForAddUpdateDto
+public class BookAddUpdateRequest
 {
     public string Title { get; set; }
     public DateTime PublishedOn { get; set; }
-    public BookImageForAddUpdateDto Image { get; set; }
+    public BookImageDto Image { get; set; }
+    public ICollection<Guid> Authors { get; set; }
 }

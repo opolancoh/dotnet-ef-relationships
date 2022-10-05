@@ -8,68 +8,64 @@ namespace EntityFrameworkRelationships.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-public class ReviewsController : ControllerBase
+public class AuthorsController : ControllerBase
 {
     private readonly BookContext _context;
-    private readonly DbSet<Review> _dbSet;
+    private readonly DbSet<Author> _dbSet;
 
-    public ReviewsController(BookContext context)
+    public AuthorsController(BookContext context)
     {
         _context = context;
-        _dbSet = context.Reviews;
+        _dbSet = context.Authors;
     }
 
     [HttpPost]
-    public async Task<ActionResult<ReviewDto>> Add(ReviewDto item)
+    public async Task<ActionResult<AuthorDto>> Add(AuthorDto item)
     {
-        var newItem = new Review()
+        var newItem = new Author()
         {
             Id = new Guid(),
-            Comment = item.Comment,
-            Rating = item.Rating,
-            BookId = item.BookId
+            Name = item.Name,
+            Email = item.Email
         };
 
         _dbSet.Add(newItem);
         await _context.SaveChangesAsync();
 
-        var dto = new ReviewDto()
+        var dto = new AuthorDto()
         {
             Id = newItem.Id,
-            Comment = newItem.Comment,
-            Rating = newItem.Rating,
-            BookId = newItem.BookId
+            Name = newItem.Name,
+            Email = newItem.Email
         };
 
         return CreatedAtAction(nameof(GetById), new {id = dto.Id}, dto);
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ReviewDto>>> Get()
+    public async Task<ActionResult<IEnumerable<AuthorDto>>> Get()
     {
         return await _dbSet
             .AsNoTracking()
-            .Select(x => new ReviewDto
+            .Select(x => new AuthorDto
             {
                 Id = x.Id,
-                Comment = x.Comment,
-                Rating = x.Rating,
-                BookId = x.BookId
+                Name = x.Name,
+                Email = x.Email
             })
             .ToListAsync();
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<ReviewDto>> GetById(Guid id)
+    public async Task<ActionResult<AuthorDto>> GetById(Guid id)
     {
         var item = await _dbSet
             .AsNoTracking()
-            .Select(x => new ReviewDto
+            .Select(x => new AuthorDto
             {
                 Id = x.Id,
-                Comment = x.Comment,
-                Rating = x.Rating,
-                BookId = x.BookId
+                Name = x.Name,
+                Email = x.Email
             })
             .FirstOrDefaultAsync(x => x.Id == id);
 
@@ -97,18 +93,16 @@ public class ReviewsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, ReviewDto item)
+    public async Task<IActionResult> Update(Guid id, AuthorDto item)
     {
-        var updateItem = new Review
+        var updateItem = new Author()
         {
             Id = id,
-            Comment = item.Comment,
-            Rating = item.Rating
+            Name = item.Name,
+            Email = item.Email
         };
 
-        // Partial update
-        _context.Entry(updateItem).Property(x => x.Comment).IsModified = true;
-        _context.Entry(updateItem).Property(x => x.Rating).IsModified = true;
+        _context.Entry(updateItem).State = EntityState.Modified;
 
         try
         {

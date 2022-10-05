@@ -3,6 +3,7 @@ using EntityFrameworkRelationships.DTOs;
 using EntityFrameworkRelationships.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 
 namespace EntityFrameworkRelationships.Controllers;
 
@@ -11,16 +12,18 @@ namespace EntityFrameworkRelationships.Controllers;
 public class BooksController : ControllerBase
 {
     private readonly BookContext _context;
+    private readonly DbSet<Book> _dbSet;
 
     public BooksController(BookContext context)
     {
         _context = context;
+        _dbSet = context.Books;
     }
 
     [HttpPost]
-    public async Task<ActionResult<BookDto>> Add(BookForAddUpdateDto item)
+    public async Task<ActionResult<BookAddUpdateResponse>> Add(BookAddUpdateRequest item)
     {
-        var book = new Book
+        var newItem = new Book()
         {
             Id = new Guid(),
             Title = item.Title,
@@ -32,19 +35,25 @@ public class BooksController : ControllerBase
             }
         };
 
-        _context.Books.Add(book);
+        foreach (var authorId in item.Authors)
+        {
+            newItem.AuthorsLink.Add(new BookAuthor {BookId = newItem.Id, AuthorId = authorId});
+        }
+
+        _dbSet.Add(newItem);
         await _context.SaveChangesAsync();
 
-        var dto = new BookDto()
+        var dto = new BookAddUpdateResponse
         {
-            Id = book.Id,
-            Title = book.Title,
-            PublishedOn = book.PublishedOn,
-            Image = new BookImageForAddUpdateDto
+            Id = newItem.Id,
+            Title = newItem.Title,
+            PublishedOn = newItem.PublishedOn,
+            Image = new BookImageDto
             {
-                Url = book.Image.Url,
-                Alt = book.Image.Alt
-            }
+                Url = newItem.Image.Url,
+                Alt = newItem.Image.Alt
+            },
+            Authors = newItem.AuthorsLink.Select(x => x.AuthorId)
         };
 
         return CreatedAtAction(nameof(GetById), new {id = dto.Id}, dto);
@@ -53,19 +62,24 @@ public class BooksController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<BookDto>>> Get()
     {
-        return await _context.Books
+        return await _dbSet
             .AsNoTracking()
-            .Include(x => x.Image)
             .Select(x => new BookDto
             {
                 Id = x.Id,
                 Title = x.Title,
                 PublishedOn = x.PublishedOn,
-                Image = new BookImageForAddUpdateDto
+                Image = new BookImageDto
                 {
                     Url = x.Image.Url,
                     Alt = x.Image.Alt
-                }
+                },
+                Authors = x.AuthorsLink
+                    .Select(y => new AuthorLiteDto
+                    {
+                        Id = y.Author.Id,
+                        Name = y.Author.Name
+                    })
             })
             .ToListAsync();
     }
@@ -73,19 +87,24 @@ public class BooksController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<BookDto>> GetById(Guid id)
     {
-        var item = await _context.Books
+        var item = await _dbSet
             .AsNoTracking()
-            .Include(x => x.Image)
             .Select(x => new BookDto
             {
                 Id = x.Id,
                 Title = x.Title,
                 PublishedOn = x.PublishedOn,
-                Image = new BookImageForAddUpdateDto
+                Image = new BookImageDto
                 {
                     Url = x.Image.Url,
                     Alt = x.Image.Alt
-                }
+                },
+                Authors = x.AuthorsLink
+                    .Select(y => new AuthorLiteDto
+                    {
+                        Id = y.Author.Id,
+                        Name = y.Author.Name
+                    })
             })
             .FirstOrDefaultAsync(x => x.Id == id);
 
@@ -100,36 +119,62 @@ public class BooksController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Remove(Guid id)
     {
-        var item = await _context.Books.FindAsync(id);
+        var item = await _dbSet
+            .Include(x => x.AuthorsLink)
+            .FirstOrDefaultAsync(x => x.Id == id);
+
         if (item == null)
         {
             return NotFound();
         }
 
-        _context.Books.Remove(item);
+        _dbSet.Remove(item);
+        Console.WriteLine(_context.ChangeTracker.DebugView.LongView);
         await _context.SaveChangesAsync();
 
         return NoContent();
     }
-    
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, BookForAddUpdateDto item)
-    {
-        var book = new Book
-        {
-            Id = id,
-            Title = item.Title,
-            PublishedOn = item.PublishedOn,
-        };
-        var image = new BookImage
-        {
-            BookId = id,
-            Url = item.Image.Url,
-            Alt = item.Image.Alt
-        };
 
-        _context.Entry(book).State = EntityState.Modified;
-        _context.Entry(image).State = EntityState.Modified;
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(Guid id, BookAddUpdateRequest item)
+    {
+        var currentItem = await _dbSet
+            .Include(x => x.Image)
+            .Include(x => x.AuthorsLink)
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+        if (currentItem == null)
+        {
+            return NotFound();
+        }
+
+        // Main update
+        currentItem.Title = item.Title;
+        currentItem.PublishedOn = item.PublishedOn;
+
+        // Image update
+        currentItem.Image.Url = item.Image.Url;
+        currentItem.Image.Alt = item.Image.Alt;
+
+        // Authors update
+        var authorsToAdd = item.Authors
+            .Where(x => currentItem.AuthorsLink.All(y => y.AuthorId != x))
+            .Select(x => new BookAuthor {BookId = id, AuthorId = x});
+        foreach (var authorToAdd in authorsToAdd)
+        {
+            currentItem.AuthorsLink.Add(authorToAdd);
+        }
+
+        var authorsToRemove = currentItem.AuthorsLink
+            .Where(x => item.Authors.All(y => y != x.AuthorId))
+            .ToList();
+        foreach (var authorToRemove in authorsToRemove)
+        {
+            currentItem.AuthorsLink.Remove(authorToRemove);
+        }
+
+        _context.Entry(currentItem).State = EntityState.Modified;
+        Console.WriteLine(_context.ChangeTracker.DebugView.LongView);
 
         try
         {
@@ -152,6 +197,6 @@ public class BooksController : ControllerBase
 
     private bool ItemExists(Guid id)
     {
-        return (_context.Books?.Any(e => e.Id == id)).GetValueOrDefault();
+        return _dbSet.Any(e => e.Id == id);
     }
 }
