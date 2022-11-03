@@ -20,18 +20,16 @@ public class BookService : IBookService
 
     public async Task<IEnumerable<BookDetailDto>> GetAll()
     {
-        return await _entity
-            .AsNoTracking()
-            .Select(x => GetBookDetailDto(x))
-            .ToListAsync();
+        var query = GetBookDetailDtoQuery();
+
+        return await query.ToListAsync();
     }
 
     public async Task<BookDetailDto?> GetById(Guid id)
     {
-        return await _entity
-            .AsNoTracking()
-            .Select(x => GetBookDetailDto(x))
-            .FirstOrDefaultAsync(x => x.Id == id);
+        var query = GetBookDetailDtoQuery();
+
+        return await query.SingleOrDefaultAsync(x => x.Id == id);
     }
 
     public async Task<BookDto> Create(BookForCreatingUpdatingDto item)
@@ -56,7 +54,7 @@ public class BookService : IBookService
         _entity.Add(newItem);
         await _context.SaveChangesAsync();
 
-        var dto = GetBookDto(newItem);
+        var dto = TransformItemToBookDto(newItem);
 
         return dto;
     }
@@ -101,7 +99,7 @@ public class BookService : IBookService
         _context.Entry(currentItem).State = EntityState.Modified;
         await _context.SaveChangesAsync();
 
-        var dto = GetBookDto(currentItem);
+        var dto = TransformItemToBookDto(currentItem);
 
         return dto;
     }
@@ -155,7 +153,7 @@ public class BookService : IBookService
         };
     }
 
-    private static BookDto GetBookDto(Book item)
+    private static BookDto TransformItemToBookDto(Book item)
     {
         return new BookDto
         {
@@ -169,5 +167,28 @@ public class BookService : IBookService
             },
             Authors = item.AuthorsLink.Select(x => x.AuthorId)
         };
+    }
+
+    private IQueryable<BookDetailDto> GetBookDetailDtoQuery()
+    {
+        return _entity
+            .AsNoTracking()
+            .Select(x => new BookDetailDto
+            {
+                Id = x.Id,
+                Title = x.Title,
+                PublishedOn = x.PublishedOn,
+                Image = new BookImageDto
+                {
+                    Url = x.Image.Url,
+                    Alt = x.Image.Alt
+                },
+                Authors = x.AuthorsLink
+                    .Select(y => new AuthorPlaneDto
+                    {
+                        Id = y.Author.Id,
+                        Name = y.Author.Name
+                    })
+            });
     }
 }
