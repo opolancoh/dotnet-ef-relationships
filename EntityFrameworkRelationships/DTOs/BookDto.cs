@@ -1,13 +1,28 @@
-using EntityFrameworkRelationships.Models;
+using System.Collections;
 
 namespace EntityFrameworkRelationships.DTOs;
 
-public class BookDto
+public record BookBaseDto
 {
-    public Guid Id { get; set; }
-    public string Title { get; set; }
-    public DateTime PublishedOn { get; set; }
-    public BookImageDto Image { get; set; }
+    public string Title { get; init; }
+    public DateTime PublishedOn { get; init; }
+    public BookImageDto Image { get; init; }
+};
 
-    public IEnumerable<AuthorLiteDto> Authors { get; set; }
+public record BookDto : BookBaseDto
+{
+    public Guid Id { get; init; }
+    public IEnumerable<Guid> Authors { get; init; }
+};
+
+public record BookDetailDto : BookBaseDto
+{
+    public Guid Id { get; init; }
+    public IEnumerable<AuthorPlaneDto> Authors { get; init; }
 }
+
+public record BookForCreatingUpdatingDto : BookBaseDto
+{
+    public IEnumerable<Guid> Authors { get; init; }
+};
+

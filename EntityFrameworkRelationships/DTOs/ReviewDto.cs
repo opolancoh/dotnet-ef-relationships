@@ -1,9 +1,9 @@
 namespace EntityFrameworkRelationships.DTOs;
 
-public class ReviewDto
+public record ReviewDto
 {
-    public Guid Id { get; set; }
-    public string Comment { get; set; }
-    public int Rating { get; set; }
-    public Guid BookId  { get; set; }
-}
+    public Guid Id { get; init; }
+    public string Comment { get; init; }
+    public int Rating { get; init; }
+    public Guid BookId { get; init; }
+};

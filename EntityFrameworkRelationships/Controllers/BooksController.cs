@@ -1,9 +1,7 @@
-using EntityFrameworkRelationships.Data;
-using EntityFrameworkRelationships.DTOs;
-using EntityFrameworkRelationships.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
+using EntityFrameworkRelationships.Contracts;
+using EntityFrameworkRelationships.DTOs;
+using EntityFrameworkRelationships.Exceptions;
 
 namespace EntityFrameworkRelationships.Controllers;
 
@@ -11,102 +9,24 @@ namespace EntityFrameworkRelationships.Controllers;
 [ApiController]
 public class BooksController : ControllerBase
 {
-    private readonly BookContext _context;
-    private readonly DbSet<Book> _dbSet;
+    private readonly IBookService _service;
 
-    public BooksController(BookContext context)
+    public BooksController(IBookService service)
     {
-        _context = context;
-        _dbSet = context.Books;
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<BookAddUpdateResponse>> Add(BookAddUpdateRequest item)
-    {
-        var newItem = new Book()
-        {
-            Id = new Guid(),
-            Title = item.Title,
-            PublishedOn = item.PublishedOn,
-            Image = new BookImage
-            {
-                Url = item.Image.Url,
-                Alt = item.Image.Alt
-            }
-        };
-
-        foreach (var authorId in item.Authors)
-        {
-            newItem.AuthorsLink.Add(new BookAuthor {BookId = newItem.Id, AuthorId = authorId});
-        }
-
-        _dbSet.Add(newItem);
-        await _context.SaveChangesAsync();
-
-        var dto = new BookAddUpdateResponse
-        {
-            Id = newItem.Id,
-            Title = newItem.Title,
-            PublishedOn = newItem.PublishedOn,
-            Image = new BookImageDto
-            {
-                Url = newItem.Image.Url,
-                Alt = newItem.Image.Alt
-            },
-            Authors = newItem.AuthorsLink.Select(x => x.AuthorId)
-        };
-
-        return CreatedAtAction(nameof(GetById), new {id = dto.Id}, dto);
+        _service = service;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<BookDto>>> Get()
+    public async Task<ActionResult<IEnumerable<BookDetailDto>>> GetAll()
     {
-        return await _dbSet
-            .AsNoTracking()
-            .Select(x => new BookDto
-            {
-                Id = x.Id,
-                Title = x.Title,
-                PublishedOn = x.PublishedOn,
-                Image = new BookImageDto
-                {
-                    Url = x.Image.Url,
-                    Alt = x.Image.Alt
-                },
-                Authors = x.AuthorsLink
-                    .Select(y => new AuthorLiteDto
-                    {
-                        Id = y.Author.Id,
-                        Name = y.Author.Name
-                    })
-            })
-            .ToListAsync();
+        var items = await _service.GetAll();
+        return Ok(items);
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<BookDto>> GetById(Guid id)
+    public async Task<ActionResult<BookDetailDto>> GetById(Guid id)
     {
-        var item = await _dbSet
-            .AsNoTracking()
-            .Select(x => new BookDto
-            {
-                Id = x.Id,
-                Title = x.Title,
-                PublishedOn = x.PublishedOn,
-                Image = new BookImageDto
-                {
-                    Url = x.Image.Url,
-                    Alt = x.Image.Alt
-                },
-                Authors = x.AuthorsLink
-                    .Select(y => new AuthorLiteDto
-                    {
-                        Id = y.Author.Id,
-                        Name = y.Author.Name
-                    })
-            })
-            .FirstOrDefaultAsync(x => x.Id == id);
+        var item = await _service.GetById(id);
 
         if (item == null)
         {
@@ -116,87 +36,41 @@ public class BooksController : ControllerBase
         return item;
     }
 
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Remove(Guid id)
+    [HttpPost]
+    public async Task<ActionResult<BookDto>> Create(BookForCreatingUpdatingDto item)
     {
-        var item = await _dbSet
-            .Include(x => x.AuthorsLink)
-            .FirstOrDefaultAsync(x => x.Id == id);
+        var newItem = await _service.Create(item);
 
-        if (item == null)
-        {
-            return NotFound();
-        }
-
-        _dbSet.Remove(item);
-        Console.WriteLine(_context.ChangeTracker.DebugView.LongView);
-        await _context.SaveChangesAsync();
-
-        return NoContent();
+        return CreatedAtAction(nameof(GetById), new {id = newItem.Id}, newItem);
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, BookAddUpdateRequest item)
+    public async Task<IActionResult> Update(Guid id, BookForCreatingUpdatingDto item)
     {
-        var currentItem = await _dbSet
-            .Include(x => x.Image)
-            .Include(x => x.AuthorsLink)
-            .FirstOrDefaultAsync(x => x.Id == id);
-
-        if (currentItem == null)
-        {
-            return NotFound();
-        }
-
-        // Main update
-        currentItem.Title = item.Title;
-        currentItem.PublishedOn = item.PublishedOn;
-
-        // Image update
-        currentItem.Image.Url = item.Image.Url;
-        currentItem.Image.Alt = item.Image.Alt;
-
-        // Authors update
-        var authorsToAdd = item.Authors
-            .Where(x => currentItem.AuthorsLink.All(y => y.AuthorId != x))
-            .Select(x => new BookAuthor {BookId = id, AuthorId = x});
-        foreach (var authorToAdd in authorsToAdd)
-        {
-            currentItem.AuthorsLink.Add(authorToAdd);
-        }
-
-        var authorsToRemove = currentItem.AuthorsLink
-            .Where(x => item.Authors.All(y => y != x.AuthorId))
-            .ToList();
-        foreach (var authorToRemove in authorsToRemove)
-        {
-            currentItem.AuthorsLink.Remove(authorToRemove);
-        }
-
-        _context.Entry(currentItem).State = EntityState.Modified;
-        Console.WriteLine(_context.ChangeTracker.DebugView.LongView);
-
         try
         {
-            await _context.SaveChangesAsync();
+            await _service.Update(id, item);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (EntityNotFoundException)
         {
-            if (!ItemExists(id))
-            {
-                return NotFound();
-            }
-            else
-            {
-                throw;
-            }
+            return NotFound();
         }
 
         return NoContent();
     }
 
-    private bool ItemExists(Guid id)
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Remove(Guid id)
     {
-        return _dbSet.Any(e => e.Id == id);
+        try
+        {
+            await _service.Remove(id);
+        }
+        catch (EntityNotFoundException)
+        {
+            return NotFound();
+        }
+
+        return NoContent();
     }
 }

@@ -33,7 +33,7 @@ public class ReviewsController : ControllerBase
         _dbSet.Add(newItem);
         await _context.SaveChangesAsync();
 
-        var dto = new ReviewDto()
+        var dto = new ReviewDto
         {
             Id = newItem.Id,
             Comment = newItem.Comment,
