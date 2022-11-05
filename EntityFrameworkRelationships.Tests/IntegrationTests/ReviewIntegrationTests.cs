@@ -6,17 +6,18 @@ using EntityFrameworkRelationships.Web.DTOs;
 
 namespace EntityFrameworkRelationships.Tests.IntegrationTests;
 
-public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<Program>>
+[Collection("SharedContext")]
+public class ReviewIntegrationTests 
 {
-    private readonly JsonSerializerOptions _options;
+    private readonly JsonSerializerOptions _serializerOptions;
     private readonly HttpClient _httpClient;
     private const string BasePath = "/api/reviews";
 
-    public ReviewIntegrationTests(CustomWebApplicationFactory<Program> factory)
+    public ReviewIntegrationTests(CustomWebApplicationFactory<Program> factory) 
     {
         _httpClient = factory.CreateClient();
 
-        _options = new JsonSerializerOptions()
+        _serializerOptions = new JsonSerializerOptions()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
@@ -29,7 +30,7 @@ public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     {
         var response = await _httpClient.GetAsync($"{BasePath}");
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<List<ReviewDto>>(payloadString, _options);
+        var payloadObject = JsonSerializer.Deserialize<List<ReviewDto>>(payloadString, _serializerOptions);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(payloadObject?.Count >= DbHelper.Reviews.Count);
@@ -46,7 +47,7 @@ public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<
 
         var response = await _httpClient.GetAsync($"{BasePath}/{existingItem?.Id}");
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<ReviewDto>(payloadString, _options);
+        var payloadObject = JsonSerializer.Deserialize<ReviewDto>(payloadString, _serializerOptions);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(existingItem?.Comment, payloadObject?.Comment);
@@ -87,12 +88,12 @@ public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<
             Rating = 3,
             BookId = DbHelper.BookId1
         };
-        var payload = JsonSerializer.Serialize(newItem, _options);
+        var payload = JsonSerializer.Serialize(newItem, _serializerOptions);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
         var response = await _httpClient.PostAsync($"{BasePath}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<ReviewDto>(payloadString, _options);
+        var payloadObject = JsonSerializer.Deserialize<ReviewDto>(payloadString, _serializerOptions);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.NotEqual(Guid.Empty, payloadObject?.Id);
@@ -106,7 +107,7 @@ public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [MemberData(nameof(MissingRequiredFieldsForCreating))]
     public async Task Create_ShouldReturnBadRequestWhenMissingRequiredFields(string[] expectedCollection, object payloadObject)
     {
-        var payload = JsonSerializer.Serialize(payloadObject, _options);
+        var payload = JsonSerializer.Serialize(payloadObject, _serializerOptions);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
         var response = await _httpClient.PostAsync($"{BasePath}", httpContent);
@@ -120,7 +121,7 @@ public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [MemberData(nameof(InvalidFields))]
     public async Task Create_ShouldReturnBadRequestWhenFieldsAreInvalid(string[] expectedCollection, object payloadObject)
     {
-        var payload = JsonSerializer.Serialize(payloadObject, _options);
+        var payload = JsonSerializer.Serialize(payloadObject, _serializerOptions);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
         var response = await _httpClient.PostAsync($"{BasePath}", httpContent);
@@ -144,11 +145,11 @@ public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<
             Rating = 3,
             BookId = DbHelper.BookId1
         };
-        var newItemPayload = JsonSerializer.Serialize(newItem, _options);
+        var newItemPayload = JsonSerializer.Serialize(newItem, _serializerOptions);
         var newItemHttpContent = new StringContent(newItemPayload, Encoding.UTF8, "application/json");
         var newItemResponse = await _httpClient.PostAsync($"{BasePath}", newItemHttpContent);
         var newItemPayloadString = await newItemResponse.Content.ReadAsStringAsync();
-        var newItemPayloadObject = JsonSerializer.Deserialize<ReviewDto>(newItemPayloadString, _options);
+        var newItemPayloadObject = JsonSerializer.Deserialize<ReviewDto>(newItemPayloadString, _serializerOptions);
         var newItemId = newItemPayloadObject?.Id.ToString();
 
         // Update the created item
@@ -158,14 +159,14 @@ public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<
             Comment = "This is a comment 01 Updated",
             Rating = 5,
         };
-        var payload = JsonSerializer.Serialize(itemToUpdate, _options);
+        var payload = JsonSerializer.Serialize(itemToUpdate, _serializerOptions);
         var httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
         var response = await _httpClient.PutAsync($"{BasePath}/{newItemId}", httpContent);
 
         // Ensure the item has been changed getting the item from the DB
         var updatedItemResponse = await _httpClient.GetAsync($"{BasePath}/{newItemId}");
         var updatedItemPayloadString = await updatedItemResponse.Content.ReadAsStringAsync();
-        var updatedItemPayloadObject = JsonSerializer.Deserialize<ReviewDto>(updatedItemPayloadString, _options);
+        var updatedItemPayloadObject = JsonSerializer.Deserialize<ReviewDto>(updatedItemPayloadString, _serializerOptions);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.Equal(itemToUpdate.Comment, updatedItemPayloadObject?.Comment);
@@ -184,7 +185,7 @@ public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<
             Rating = 3
         };
 
-        var payload = JsonSerializer.Serialize(itemToUpdate, _options);
+        var payload = JsonSerializer.Serialize(itemToUpdate, _serializerOptions);
         var httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
         var response = await _httpClient.PutAsync($"{BasePath}/{itemId}", httpContent);
 
@@ -196,7 +197,7 @@ public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [MemberData(nameof(MissingRequiredFieldsForUpdating))]
     public async Task Update_ShouldReturnBadRequestWhenMissingRequiredFields(string[] expectedCollection, object payloadObject)
     {
-        var payload = JsonSerializer.Serialize(payloadObject, _options);
+        var payload = JsonSerializer.Serialize(payloadObject, _serializerOptions);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
         var itemId = new Guid();
@@ -211,7 +212,7 @@ public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [MemberData(nameof(InvalidFields))]
     public async Task Update_ShouldReturnBadRequestWhenFieldsAreInvalid(string[] expectedCollection, object payloadObject)
     {
-        var payload = JsonSerializer.Serialize(payloadObject, _options);
+        var payload = JsonSerializer.Serialize(payloadObject, _serializerOptions);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
         var itemId = new Guid();
@@ -236,11 +237,11 @@ public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<
             Rating = 3,
             BookId = DbHelper.BookId1
         };
-        var newItemPayload = JsonSerializer.Serialize(newItem, _options);
+        var newItemPayload = JsonSerializer.Serialize(newItem, _serializerOptions);
         var newItemHttpContent = new StringContent(newItemPayload, Encoding.UTF8, "application/json");
         var newItemResponse = await _httpClient.PostAsync($"{BasePath}", newItemHttpContent);
         var newItemPayloadString = await newItemResponse.Content.ReadAsStringAsync();
-        var newItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(newItemPayloadString, _options);
+        var newItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(newItemPayloadString, _serializerOptions);
 
         // Remove the created item
         var response = await _httpClient.DeleteAsync($"{BasePath}/{newItemPayloadObject?.Id}");

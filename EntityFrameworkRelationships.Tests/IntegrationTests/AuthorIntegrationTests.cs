@@ -4,18 +4,19 @@ using System.Text.Json;
 using EntityFrameworkRelationships.Web.DTOs;
 
 namespace EntityFrameworkRelationships.Tests.IntegrationTests;
-/*
-public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<Program>>
+
+[Collection("SharedContext")]
+public class AuthorIntegrationTests
 {
-    private readonly JsonSerializerOptions _options;
+    private readonly JsonSerializerOptions _serializerOptions;
     private readonly HttpClient _httpClient;
-    private const string _basePath = "/api/authors";
+    private const string BasePath = "/api/authors";
 
     public AuthorIntegrationTests(CustomWebApplicationFactory<Program> factory)
     {
         _httpClient = factory.CreateClient();
 
-        _options = new JsonSerializerOptions()
+        _serializerOptions = new JsonSerializerOptions()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
@@ -26,9 +27,9 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [Fact]
     public async Task GeAll_ShouldReturnAllItems()
     {
-        var response = await _httpClient.GetAsync($"{_basePath}");
+        var response = await _httpClient.GetAsync($"{BasePath}");
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<List<AuthorDto>>(payloadString, _options);
+        var payloadObject = JsonSerializer.Deserialize<List<AuthorDto>>(payloadString, _serializerOptions);
         var item = payloadObject?.SingleOrDefault(x => x.Name == "Sheldon Cooper");
         
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -42,14 +43,14 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [Fact]
     public async Task GeById_ShouldReturnOnlyOneItem()
     {
-        var itemsResponse = await _httpClient.GetAsync($"{_basePath}");
+        var itemsResponse = await _httpClient.GetAsync($"{BasePath}");
         var itemsPayloadString = await itemsResponse.Content.ReadAsStringAsync();
-        var itemsPayloadObject = JsonSerializer.Deserialize<List<AuthorDto>>(itemsPayloadString, _options);
+        var itemsPayloadObject = JsonSerializer.Deserialize<List<AuthorDto>>(itemsPayloadString, _serializerOptions);
         var item = itemsPayloadObject?.SingleOrDefault(x => x.Name == "Sheldon Cooper");
 
-        var response = await _httpClient.GetAsync($"{_basePath}/{item?.Id}");
+        var response = await _httpClient.GetAsync($"{BasePath}/{item?.Id}");
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<AuthorDto>(payloadString, _options);
+        var payloadObject = JsonSerializer.Deserialize<AuthorDto>(payloadString, _serializerOptions);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("Sheldon Cooper", payloadObject?.Name);
@@ -59,8 +60,8 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [Fact]
     public async Task GeById_ShouldReturnNotFoundWhenIdNotExists()
     {
-        var id = new Guid();
-        var response = await _httpClient.GetAsync($"{_basePath}/{id.ToString()}");
+        var itemId = new Guid();
+        var response = await _httpClient.GetAsync($"{BasePath}/{itemId}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -68,8 +69,8 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [Fact]
     public async Task GeById_ShouldReturnBadRequestWhenIdIsNotValid()
     {
-        const string id = "not-valid-id";
-        var response = await _httpClient.GetAsync($"{_basePath}/{id}");
+        const string itemId = "not-valid-id";
+        var response = await _httpClient.GetAsync($"{BasePath}/{itemId}");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -87,12 +88,12 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
             Email = "Brian.OConner@email.com"
         };
 
-        var payload = JsonSerializer.Serialize(newItem, _options);
+        var payload = JsonSerializer.Serialize(newItem, _serializerOptions);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync($"{_basePath}", httpContent);
+        var response = await _httpClient.PostAsync($"{BasePath}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<AuthorDto>(payloadString, _options);
+        var payloadObject = JsonSerializer.Deserialize<AuthorDto>(payloadString, _serializerOptions);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.NotEqual(Guid.Empty, payloadObject?.Id);
@@ -104,10 +105,10 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [MemberData(nameof(MissingRequiredFieldsData))]
     public async Task Create_ShouldReturnBadRequestWhenMissingRequiredFields(string[] expectedCollection, object payloadObject)
     {
-        var payload = JsonSerializer.Serialize(payloadObject, _options);
+        var payload = JsonSerializer.Serialize(payloadObject, _serializerOptions);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync($"{_basePath}", httpContent);
+        var response = await _httpClient.PostAsync($"{BasePath}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -118,10 +119,10 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [MemberData(nameof(FieldsAreInvalidData))]
     public async Task Create_ShouldReturnBadRequestWhenFieldsAreInvalid(string[] expectedCollection, object payloadObject)
     {
-        var payload = JsonSerializer.Serialize(payloadObject, _options);
+        var payload = JsonSerializer.Serialize(payloadObject, _serializerOptions);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync($"{_basePath}", httpContent);
+        var response = await _httpClient.PostAsync($"{BasePath}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -142,48 +143,48 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
             Email = "Author.Update@email.com"
         };
 
-        var newItemPayload = JsonSerializer.Serialize(newItem, _options);
+        var newItemPayload = JsonSerializer.Serialize(newItem, _serializerOptions);
         var newItemHttpContent = new StringContent(newItemPayload, Encoding.UTF8, "application/json");
-        var newItemResponse = await _httpClient.PostAsync($"{_basePath}", newItemHttpContent);
+        var newItemResponse = await _httpClient.PostAsync($"{BasePath}", newItemHttpContent);
         var newItemPayloadString = await newItemResponse.Content.ReadAsStringAsync();
-        var newItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(newItemPayloadString, _options);
+        var newItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(newItemPayloadString, _serializerOptions);
         var newItemId = newItemPayloadObject?.Id.ToString();
 
         // Update the created item
-        var updatedItem = new
+        var itemToUpdate = new
         {
             Name = "Author Updated",
             Email = "Author.Updated@email.com"
         };
 
-        var payload = JsonSerializer.Serialize(updatedItem, _options);
+        var payload = JsonSerializer.Serialize(itemToUpdate, _serializerOptions);
         var httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PutAsync($"{_basePath}/{newItemId}", httpContent);
+        var response = await _httpClient.PutAsync($"{BasePath}/{newItemId}", httpContent);
 
         // Ensure the item has been changed getting the item from the DB
-        var updatedItemResponse = await _httpClient.GetAsync($"{_basePath}/{newItemId}");
+        var updatedItemResponse = await _httpClient.GetAsync($"{BasePath}/{newItemId}");
         var updatedItemPayloadString = await updatedItemResponse.Content.ReadAsStringAsync();
-        var updatedItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(updatedItemPayloadString, _options);
+        var updatedItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(updatedItemPayloadString, _serializerOptions);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.Equal(updatedItem.Name, updatedItemPayloadObject?.Name);
-        Assert.Equal(updatedItem.Email, updatedItemPayloadObject?.Email);
+        Assert.Equal(itemToUpdate.Name, updatedItemPayloadObject?.Name);
+        Assert.Equal(itemToUpdate.Email, updatedItemPayloadObject?.Email);
     }
 
     [Fact]
     public async Task Update_ShouldReturnNotFoundWhenIdNotExists()
     {
-        var id = new Guid();
+        var itemId = new Guid();
         var itemToUpdate = new
         {
             Name = "Author Second",
             Email = "Author.Second@email.com"
         };
 
-        var payload = JsonSerializer.Serialize(itemToUpdate, _options);
+        var payload = JsonSerializer.Serialize(itemToUpdate, _serializerOptions);
         var httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
-        var response = await _httpClient.PutAsync($"{_basePath}/{id.ToString()}", httpContent);
+        var response = await _httpClient.PutAsync($"{BasePath}/{itemId}", httpContent);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -192,11 +193,11 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [MemberData(nameof(MissingRequiredFieldsData))]
     public async Task Update_ShouldReturnBadRequestWhenMissingRequiredFields(string[] expectedCollection, object payloadObject)
     {
-        var payload = JsonSerializer.Serialize(payloadObject, _options);
+        var payload = JsonSerializer.Serialize(payloadObject, _serializerOptions);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
-        var id = new Guid();
-        var response = await _httpClient.PutAsync($"{_basePath}/{id.ToString()}", httpContent);
+        var itemId = new Guid();
+        var response = await _httpClient.PutAsync($"{BasePath}/{itemId}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -207,11 +208,11 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [MemberData(nameof(FieldsAreInvalidData))]
     public async Task Update_ShouldReturnBadRequestWhenFieldsAreInvalid(string[] expectedCollection, object payloadObject)
     {
-        var payload = JsonSerializer.Serialize(payloadObject, _options);
+        var payload = JsonSerializer.Serialize(payloadObject, _serializerOptions);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
-        var id = new Guid();
-        var response = await _httpClient.PutAsync($"{_basePath}/{id.ToString()}", httpContent);
+        var itemId = new Guid();
+        var response = await _httpClient.PutAsync($"{BasePath}/{itemId}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -232,17 +233,17 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
             Email="Item.Remove@email.com"
         };
 
-        var newItemPayload = JsonSerializer.Serialize(newItem, _options);
+        var newItemPayload = JsonSerializer.Serialize(newItem, _serializerOptions);
         var newItemHttpContent = new StringContent(newItemPayload, Encoding.UTF8, "application/json");
-        var newItemResponse = await _httpClient.PostAsync($"{_basePath}", newItemHttpContent);
+        var newItemResponse = await _httpClient.PostAsync($"{BasePath}", newItemHttpContent);
         var newItemPayloadString = await newItemResponse.Content.ReadAsStringAsync();
-        var newItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(newItemPayloadString, _options);
+        var newItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(newItemPayloadString, _serializerOptions);
 
         // Remove the created item
-        var response = await _httpClient.DeleteAsync($"{_basePath}/{newItemPayloadObject?.Id}");
+        var response = await _httpClient.DeleteAsync($"{BasePath}/{newItemPayloadObject?.Id}");
 
         // Ensure the item has been deleted trying to get the item from the DB
-        var deletedItemResponse = await _httpClient.GetAsync($"{_basePath}/{newItemPayloadObject?.Id}");
+        var deletedItemResponse = await _httpClient.GetAsync($"{BasePath}/{newItemPayloadObject?.Id}");
 
         Assert.Equal(HttpStatusCode.Created, newItemResponse.StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
@@ -252,8 +253,8 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [Fact]
     public async Task Remove_ShouldReturnNotFoundWhenIdNotExists()
     {
-        var id = new Guid();
-        var response = await _httpClient.DeleteAsync($"{_basePath}/{id.ToString()}");
+        var itemId = new Guid();
+        var response = await _httpClient.DeleteAsync($"{BasePath}/{itemId}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -261,8 +262,8 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [Fact]
     public async Task Remove_ShouldReturnBadRequestWhenIdIsNotValid()
     {
-        const string id = "not-valid-id";
-        var response = await _httpClient.DeleteAsync($"{_basePath}/{id}");
+        const string itemId = "not-valid-id";
+        var response = await _httpClient.DeleteAsync($"{BasePath}/{itemId}");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -282,8 +283,7 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     {
         {new[] {"The Name field is invalid."}, new {Name = "N@me", Email = "user@email.com"}},
         {new[] {"The Name field is invalid.", "The Email field is invalid."}, new {Name = "Author 1", Email = "user @email.com"}},
-        {new[] {"The Email field is invalid."}, new {Name = "Author New", Email = "useremail.com"}},
+        {new[] {"The Email field is invalid."}, new {Name = "Author New", Email = "user.email.com"}},
         {new[] {"The Email field is invalid."}, new {Name = "Author New", Email = "user@email"}}
     };
 }
-*/

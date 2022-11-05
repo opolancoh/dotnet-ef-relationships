@@ -24,30 +24,28 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
 
             //
             var serviceProvider = services.BuildServiceProvider();
-            using (var scope = serviceProvider.CreateScope())
-            {
-                var scopedServices = scope.ServiceProvider;
-                var db = scopedServices.GetRequiredService<ApplicationDbContext>();
-                var logger = scopedServices.GetRequiredService<ILogger<CustomWebApplicationFactory<TProgram>>>();
+            using var scope = serviceProvider.CreateScope();
+            var scopedServices = scope.ServiceProvider;
+            var db = scopedServices.GetRequiredService<ApplicationDbContext>();
+            var logger = scopedServices.GetRequiredService<ILogger<CustomWebApplicationFactory<TProgram>>>();
 
-                db.Database.EnsureDeleted();
-                db.Database.EnsureCreated();
+            db.Database.EnsureDeleted();
+            db.Database.EnsureCreated();
 
-                // Don't update/remove this initial data
-                var authors = DbHelper.Authors;
-                db.Authors?.AddRange(authors);
-                db.SaveChanges();
+            // Don't update/remove this initial data
+            var authors = DbHelper.Authors;
+            db.Authors?.AddRange(authors);
+            db.SaveChanges();
 
-                var books = DbHelper.Books;
-                db.Books?.AddRange(books);
-                db.SaveChanges();
+            var books = DbHelper.Books;
+            db.Books?.AddRange(books);
+            db.SaveChanges();
 
-                var reviews = DbHelper.Reviews;
-                db.Reviews?.AddRange(reviews);
-                db.SaveChanges();
+            var reviews = DbHelper.Reviews;
+            db.Reviews?.AddRange(reviews);
+            db.SaveChanges();
 
-                logger.LogError("All data was saved successfully");
-            }
+            logger.LogError("All data was saved successfully");
         });
     }
 }
