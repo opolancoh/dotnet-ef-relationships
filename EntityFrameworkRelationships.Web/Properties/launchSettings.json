@@ -12,7 +12,7 @@
     "EntityFrameworkRelationships": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": true,
+      "launchBrowser": false,
       "launchUrl": "swagger",
       "applicationUrl": "https://localhost:7161;http://localhost:5276",
       "environmentVariables": {

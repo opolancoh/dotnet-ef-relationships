@@ -23,6 +23,7 @@ public static class ServiceExtensions
     {
         services.AddScoped<IAuthorService, AuthorService>();
         services.AddScoped<IBookService, BookService>();
+        services.AddScoped<IReviewService, ReviewService>();
     }
 
     public static void ConfigureSqlContext(this IServiceCollection services,

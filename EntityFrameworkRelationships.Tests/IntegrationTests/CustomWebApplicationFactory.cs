@@ -33,16 +33,20 @@ public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProg
                 db.Database.EnsureDeleted();
                 db.Database.EnsureCreated();
 
-                try
-                {
-                    // Don't update/remove this initial data
-                    db.Authors?.AddRange(Utilities.GetAuthors());
-                    db.SaveChanges();
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "An error occurred seeding the database with test messages. Error: {Message}", ex.Message);
-                }
+                // Don't update/remove this initial data
+                var authors = DbHelper.Authors;
+                db.Authors?.AddRange(authors);
+                db.SaveChanges();
+
+                var books = DbHelper.Books;
+                db.Books?.AddRange(books);
+                db.SaveChanges();
+
+                var reviews = DbHelper.Reviews;
+                db.Reviews?.AddRange(reviews);
+                db.SaveChanges();
+
+                logger.LogError("All data was saved successfully");
             }
         });
     }

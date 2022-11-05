@@ -1,17 +1,18 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using EntityFrameworkRelationships.Tests.Helpers;
 using EntityFrameworkRelationships.Web.DTOs;
 
 namespace EntityFrameworkRelationships.Tests.IntegrationTests;
-/*
-public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<Program>>
+
+public class ReviewIntegrationTests : IClassFixture<CustomWebApplicationFactory<Program>>
 {
     private readonly JsonSerializerOptions _options;
     private readonly HttpClient _httpClient;
-    private const string _basePath = "/api/authors";
+    private const string BasePath = "/api/reviews";
 
-    public AuthorIntegrationTests(CustomWebApplicationFactory<Program> factory)
+    public ReviewIntegrationTests(CustomWebApplicationFactory<Program> factory)
     {
         _httpClient = factory.CreateClient();
 
@@ -26,13 +27,12 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [Fact]
     public async Task GeAll_ShouldReturnAllItems()
     {
-        var response = await _httpClient.GetAsync($"{_basePath}");
+        var response = await _httpClient.GetAsync($"{BasePath}");
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<List<AuthorDto>>(payloadString, _options);
-        var item = payloadObject?.SingleOrDefault(x => x.Name == "Sheldon Cooper");
-        
+        var payloadObject = JsonSerializer.Deserialize<List<ReviewDto>>(payloadString, _options);
+
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("Sheldon.Cooper@email.com", item?.Email);
+        Assert.True(payloadObject?.Count >= DbHelper.Reviews.Count);
     }
 
     #endregion
@@ -42,25 +42,24 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [Fact]
     public async Task GeById_ShouldReturnOnlyOneItem()
     {
-        var itemsResponse = await _httpClient.GetAsync($"{_basePath}");
-        var itemsPayloadString = await itemsResponse.Content.ReadAsStringAsync();
-        var itemsPayloadObject = JsonSerializer.Deserialize<List<AuthorDto>>(itemsPayloadString, _options);
-        var item = itemsPayloadObject?.SingleOrDefault(x => x.Name == "Sheldon Cooper");
+        var existingItem = DbHelper.Reviews.SingleOrDefault(x => x.Id == DbHelper.ReviewId1);
 
-        var response = await _httpClient.GetAsync($"{_basePath}/{item?.Id}");
+        var response = await _httpClient.GetAsync($"{BasePath}/{existingItem?.Id}");
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<AuthorDto>(payloadString, _options);
+        var payloadObject = JsonSerializer.Deserialize<ReviewDto>(payloadString, _options);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("Sheldon Cooper", payloadObject?.Name);
-        Assert.Equal("Sheldon.Cooper@email.com", payloadObject?.Email);
+        Assert.Equal(existingItem?.Comment, payloadObject?.Comment);
+        Assert.Equal(existingItem?.Rating, payloadObject?.Rating);
+        Assert.Equal(existingItem?.BookId, payloadObject?.BookId);
     }
 
     [Fact]
     public async Task GeById_ShouldReturnNotFoundWhenIdNotExists()
     {
-        var id = new Guid();
-        var response = await _httpClient.GetAsync($"{_basePath}/{id.ToString()}");
+        var itemId = new Guid();
+
+        var response = await _httpClient.GetAsync($"{BasePath}/{itemId}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -68,8 +67,9 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [Fact]
     public async Task GeById_ShouldReturnBadRequestWhenIdIsNotValid()
     {
-        const string id = "not-valid-id";
-        var response = await _httpClient.GetAsync($"{_basePath}/{id}");
+        const string itemId = "not-valid-id";
+
+        var response = await _httpClient.GetAsync($"{BasePath}/{itemId}");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
@@ -83,31 +83,33 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     {
         var newItem = new
         {
-            Name = "Brian O'Conner",
-            Email = "Brian.OConner@email.com"
+            Comment = "This is a comment 01",
+            Rating = 3,
+            BookId = DbHelper.BookId1
         };
-
         var payload = JsonSerializer.Serialize(newItem, _options);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync($"{_basePath}", httpContent);
+        var response = await _httpClient.PostAsync($"{BasePath}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<AuthorDto>(payloadString, _options);
+        var payloadObject = JsonSerializer.Deserialize<ReviewDto>(payloadString, _options);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.NotEqual(Guid.Empty, payloadObject?.Id);
-        Assert.Equal(newItem.Name, payloadObject?.Name);
-        Assert.Equal(newItem.Email, payloadObject?.Email);
+        Assert.Equal(newItem.Comment, payloadObject?.Comment);
+        Assert.Equal(newItem.Rating, payloadObject?.Rating);
+        Assert.Equal(newItem.BookId, payloadObject?.BookId);
     }
 
     [Theory]
-    [MemberData(nameof(MissingRequiredFieldsData))]
+    [MemberData(nameof(MissingRequiredFieldsBase))]
+    [MemberData(nameof(MissingRequiredFieldsForCreating))]
     public async Task Create_ShouldReturnBadRequestWhenMissingRequiredFields(string[] expectedCollection, object payloadObject)
     {
         var payload = JsonSerializer.Serialize(payloadObject, _options);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync($"{_basePath}", httpContent);
+        var response = await _httpClient.PostAsync($"{BasePath}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -115,13 +117,13 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     }
 
     [Theory]
-    [MemberData(nameof(FieldsAreInvalidData))]
+    [MemberData(nameof(InvalidFields))]
     public async Task Create_ShouldReturnBadRequestWhenFieldsAreInvalid(string[] expectedCollection, object payloadObject)
     {
         var payload = JsonSerializer.Serialize(payloadObject, _options);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.PostAsync($"{_basePath}", httpContent);
+        var response = await _httpClient.PostAsync($"{BasePath}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -129,7 +131,7 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     }
 
     #endregion
-    
+
     #region Update
 
     [Fact]
@@ -138,65 +140,67 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
         // Create a new item
         var newItem = new
         {
-            Name = "Author Update",
-            Email = "Author.Update@email.com"
+            Comment = "This is a comment 01",
+            Rating = 3,
+            BookId = DbHelper.BookId1
         };
-
         var newItemPayload = JsonSerializer.Serialize(newItem, _options);
         var newItemHttpContent = new StringContent(newItemPayload, Encoding.UTF8, "application/json");
-        var newItemResponse = await _httpClient.PostAsync($"{_basePath}", newItemHttpContent);
+        var newItemResponse = await _httpClient.PostAsync($"{BasePath}", newItemHttpContent);
         var newItemPayloadString = await newItemResponse.Content.ReadAsStringAsync();
-        var newItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(newItemPayloadString, _options);
+        var newItemPayloadObject = JsonSerializer.Deserialize<ReviewDto>(newItemPayloadString, _options);
         var newItemId = newItemPayloadObject?.Id.ToString();
 
         // Update the created item
-        var updatedItem = new
+        var itemToUpdate = new
         {
-            Name = "Author Updated",
-            Email = "Author.Updated@email.com"
+            Id = newItemId,
+            Comment = "This is a comment 01 Updated",
+            Rating = 5,
         };
-
-        var payload = JsonSerializer.Serialize(updatedItem, _options);
+        var payload = JsonSerializer.Serialize(itemToUpdate, _options);
         var httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.PutAsync($"{_basePath}/{newItemId}", httpContent);
+        var response = await _httpClient.PutAsync($"{BasePath}/{newItemId}", httpContent);
 
         // Ensure the item has been changed getting the item from the DB
-        var updatedItemResponse = await _httpClient.GetAsync($"{_basePath}/{newItemId}");
+        var updatedItemResponse = await _httpClient.GetAsync($"{BasePath}/{newItemId}");
         var updatedItemPayloadString = await updatedItemResponse.Content.ReadAsStringAsync();
-        var updatedItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(updatedItemPayloadString, _options);
+        var updatedItemPayloadObject = JsonSerializer.Deserialize<ReviewDto>(updatedItemPayloadString, _options);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.Equal(updatedItem.Name, updatedItemPayloadObject?.Name);
-        Assert.Equal(updatedItem.Email, updatedItemPayloadObject?.Email);
+        Assert.Equal(itemToUpdate.Comment, updatedItemPayloadObject?.Comment);
+        Assert.Equal(itemToUpdate.Rating, updatedItemPayloadObject?.Rating);
+        Assert.Equal(newItem.BookId, updatedItemPayloadObject?.BookId);
     }
 
     [Fact]
     public async Task Update_ShouldReturnNotFoundWhenIdNotExists()
     {
-        var id = new Guid();
+        var itemId = new Guid();
         var itemToUpdate = new
         {
-            Name = "Author Second",
-            Email = "Author.Second@email.com"
+            Id = itemId,
+            Comment = "Comment",
+            Rating = 3
         };
 
         var payload = JsonSerializer.Serialize(itemToUpdate, _options);
         var httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
-        var response = await _httpClient.PutAsync($"{_basePath}/{id.ToString()}", httpContent);
+        var response = await _httpClient.PutAsync($"{BasePath}/{itemId}", httpContent);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Theory]
-    [MemberData(nameof(MissingRequiredFieldsData))]
+    [MemberData(nameof(MissingRequiredFieldsBase))]
+    [MemberData(nameof(MissingRequiredFieldsForUpdating))]
     public async Task Update_ShouldReturnBadRequestWhenMissingRequiredFields(string[] expectedCollection, object payloadObject)
     {
         var payload = JsonSerializer.Serialize(payloadObject, _options);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
-        var id = new Guid();
-        var response = await _httpClient.PutAsync($"{_basePath}/{id.ToString()}", httpContent);
+        var itemId = new Guid();
+        var response = await _httpClient.PutAsync($"{BasePath}/{itemId}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -204,14 +208,14 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     }
 
     [Theory]
-    [MemberData(nameof(FieldsAreInvalidData))]
+    [MemberData(nameof(InvalidFields))]
     public async Task Update_ShouldReturnBadRequestWhenFieldsAreInvalid(string[] expectedCollection, object payloadObject)
     {
         var payload = JsonSerializer.Serialize(payloadObject, _options);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
-        var id = new Guid();
-        var response = await _httpClient.PutAsync($"{_basePath}/{id.ToString()}", httpContent);
+        var itemId = new Guid();
+        var response = await _httpClient.PutAsync($"{BasePath}/{itemId.ToString()}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -228,21 +232,21 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
         // Create a new item
         var newItem = new
         {
-            Name = "Item Remove",
-            Email="Item.Remove@email.com"
+            Comment = "This is a comment 01",
+            Rating = 3,
+            BookId = DbHelper.BookId1
         };
-
         var newItemPayload = JsonSerializer.Serialize(newItem, _options);
         var newItemHttpContent = new StringContent(newItemPayload, Encoding.UTF8, "application/json");
-        var newItemResponse = await _httpClient.PostAsync($"{_basePath}", newItemHttpContent);
+        var newItemResponse = await _httpClient.PostAsync($"{BasePath}", newItemHttpContent);
         var newItemPayloadString = await newItemResponse.Content.ReadAsStringAsync();
         var newItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(newItemPayloadString, _options);
 
         // Remove the created item
-        var response = await _httpClient.DeleteAsync($"{_basePath}/{newItemPayloadObject?.Id}");
+        var response = await _httpClient.DeleteAsync($"{BasePath}/{newItemPayloadObject?.Id}");
 
         // Ensure the item has been deleted trying to get the item from the DB
-        var deletedItemResponse = await _httpClient.GetAsync($"{_basePath}/{newItemPayloadObject?.Id}");
+        var deletedItemResponse = await _httpClient.GetAsync($"{BasePath}/{newItemPayloadObject?.Id}");
 
         Assert.Equal(HttpStatusCode.Created, newItemResponse.StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
@@ -252,8 +256,8 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [Fact]
     public async Task Remove_ShouldReturnNotFoundWhenIdNotExists()
     {
-        var id = new Guid();
-        var response = await _httpClient.DeleteAsync($"{_basePath}/{id.ToString()}");
+        var itemId = new Guid();
+        var response = await _httpClient.DeleteAsync($"{BasePath}/{itemId}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -261,29 +265,43 @@ public class AuthorIntegrationTests : IClassFixture<CustomWebApplicationFactory<
     [Fact]
     public async Task Remove_ShouldReturnBadRequestWhenIdIsNotValid()
     {
-        const string id = "not-valid-id";
-        var response = await _httpClient.DeleteAsync($"{_basePath}/{id}");
+        const string itemId = "not-valid-id";
+        var response = await _httpClient.DeleteAsync($"{BasePath}/{itemId}");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     #endregion
 
-    public static TheoryData<string[], object> MissingRequiredFieldsData => new()
+    public static TheoryData<string[], object> MissingRequiredFieldsBase => new()
     {
-        {new[] {"The Name field is required.", "The Email field is required."}, new { }},
-        {new[] {"The Name field is required."}, new {Email = "user@email.com"}},
-        {new[] {"The Email field is required."}, new {Name = "Author New"}},
-        {new[] {"The Name field is required."}, new {Name = "", Email = "user@email.com"}},
-        {new[] {"The Name field is required."}, new {Name = " ", Email = "user@email.com"}},
+        {new[] {"The Comment field is required."}, new {Rating = 3, BookId = new Guid()}},
+        {new[] {"The Rating field is required."}, new {Comment = "Comment", BookId = new Guid()}},
+        {new[] {"The Comment field is required."}, new {Comment = "", Rating = 3, BookId = new Guid()}}
     };
 
-    public static TheoryData<string[], object> FieldsAreInvalidData => new()
+    public static TheoryData<string[], object> MissingRequiredFieldsForCreating => new()
     {
-        {new[] {"The Name field is invalid."}, new {Name = "N@me", Email = "user@email.com"}},
-        {new[] {"The Name field is invalid.", "The Email field is invalid."}, new {Name = "Author 1", Email = "user @email.com"}},
-        {new[] {"The Email field is invalid."}, new {Name = "Author New", Email = "useremail.com"}},
-        {new[] {"The Email field is invalid."}, new {Name = "Author New", Email = "user@email"}}
+        {
+            new[]
+            {
+                "The Comment field is required.",
+                "The Rating field is required.",
+                "The BookId field is required."
+            },
+            new { }
+        },
+        {new[] {"The BookId field is required."}, new {Comment = "Comment", Rating = 3}},
+    };
+
+    public static TheoryData<string[], object> MissingRequiredFieldsForUpdating => new()
+    {
+        {new[] {"The Id field is required."}, new {Comment = "Comment", Rating = 3, BookId = new Guid()}},
+    };
+
+    public static TheoryData<string[], object> InvalidFields => new()
+    {
+        {new[] {"The Rating field must be between 1 and 5."}, new {Id = new Guid(), Comment = "Comment", Rating = 0, BookId = new Guid()}},
+        {new[] {"The Rating field must be between 1 and 5."}, new {Id = new Guid(), Comment = "Comment", Rating = 6, BookId = new Guid()}},
     };
 }
-*/

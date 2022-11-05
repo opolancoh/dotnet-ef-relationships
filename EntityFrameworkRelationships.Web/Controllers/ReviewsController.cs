@@ -1,8 +1,7 @@
-using EntityFrameworkRelationships.Web.Data;
-using EntityFrameworkRelationships.Web.DTOs;
-using EntityFrameworkRelationships.Web.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using EntityFrameworkRelationships.Web.Contracts;
+using EntityFrameworkRelationships.Web.DTOs;
+using EntityFrameworkRelationships.Web.Exceptions;
 
 namespace EntityFrameworkRelationships.Web.Controllers;
 
@@ -10,68 +9,24 @@ namespace EntityFrameworkRelationships.Web.Controllers;
 [ApiController]
 public class ReviewsController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
-    private readonly DbSet<Review> _dbSet;
+    private readonly IReviewService _service;
 
-    public ReviewsController(ApplicationDbContext context)
+    public ReviewsController(IReviewService service)
     {
-        _context = context;
-        _dbSet = context.Reviews;
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<ReviewDto>> Add(ReviewDto item)
-    {
-        var newItem = new Review()
-        {
-            Id = new Guid(),
-            Comment = item.Comment,
-            Rating = item.Rating,
-            BookId = item.BookId
-        };
-
-        _dbSet.Add(newItem);
-        await _context.SaveChangesAsync();
-
-        var dto = new ReviewDto
-        {
-            Id = newItem.Id,
-            Comment = newItem.Comment,
-            Rating = newItem.Rating,
-            BookId = newItem.BookId
-        };
-
-        return CreatedAtAction(nameof(GetById), new {id = dto.Id}, dto);
+        _service = service;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ReviewDto>>> Get()
+    public async Task<ActionResult<IEnumerable<ReviewDto>>> GetAll()
     {
-        return await _dbSet
-            .AsNoTracking()
-            .Select(x => new ReviewDto
-            {
-                Id = x.Id,
-                Comment = x.Comment,
-                Rating = x.Rating,
-                BookId = x.BookId
-            })
-            .ToListAsync();
+        var items = await _service.GetAll();
+        return Ok(items);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<ReviewDto>> GetById(Guid id)
     {
-        var item = await _dbSet
-            .AsNoTracking()
-            .Select(x => new ReviewDto
-            {
-                Id = x.Id,
-                Comment = x.Comment,
-                Rating = x.Rating,
-                BookId = x.BookId
-            })
-            .FirstOrDefaultAsync(x => x.Id == id);
+        var item = await _service.GetById(id);
 
         if (item == null)
         {
@@ -81,56 +36,44 @@ public class ReviewsController : ControllerBase
         return item;
     }
 
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> Remove(Guid id)
+    [HttpPost]
+    public async Task<ActionResult<ReviewDto>> Create(ReviewForCreatingDto item)
     {
-        var item = await _dbSet.FindAsync(id);
-        if (item == null)
+        var newItem = await _service.Create(item);
+
+        return CreatedAtAction(nameof(GetById), new {id = newItem.Id}, newItem);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(Guid id, ReviewForUpdatingDto item)
+    {
+        if (id != item.Id)
+            return BadRequest();
+
+        try
+        {
+            await _service.Update(item);
+        }
+        catch (EntityNotFoundException)
         {
             return NotFound();
         }
 
-        _dbSet.Remove(item);
-        await _context.SaveChangesAsync();
-
         return NoContent();
     }
 
-    [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, ReviewDto item)
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Remove(Guid id)
     {
-        var updateItem = new Review
-        {
-            Id = id,
-            Comment = item.Comment,
-            Rating = item.Rating
-        };
-
-        // Partial update
-        _context.Entry(updateItem).Property(x => x.Comment).IsModified = true;
-        _context.Entry(updateItem).Property(x => x.Rating).IsModified = true;
-
         try
         {
-            await _context.SaveChangesAsync();
+            await _service.Remove(id);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (EntityNotFoundException)
         {
-            if (!ItemExists(id))
-            {
-                return NotFound();
-            }
-            else
-            {
-                throw;
-            }
+            return NotFound();
         }
 
         return NoContent();
-    }
-
-    private bool ItemExists(Guid id)
-    {
-        return _dbSet.Any(e => e.Id == id);
     }
 }
