@@ -1,0 +1,45 @@
+//// -- LEVEL 1
+//// -- Schemas, Tables and References
+
+// Creating tables
+
+
+// If schema name is omitted, it will default to "public" schema.
+Table Books as B {
+  Id guid [pk] 
+  Title varchar
+  PublishedOn timestamp
+}
+
+Table Images as I {
+  BookId guid [pk] 
+  Url varchar
+  Alt varchar
+}
+
+Table Reviews as R {
+  Id guid [pk]
+  Comment varchar
+  Rating int
+  BookId guid
+ }
+ 
+ Table Authors as A {
+  Id guid [pk]
+  Name varchar
+  Email varchar
+ }
+
+// Creating references
+// You can also define relaionship separately
+// > many-to-one; < one-to-many; - one-to-one; <> many-to-many
+
+// one-to-one
+Ref: B.Id - I.BookId
+
+// one-to-many
+Ref: B.Id < R.BookId  
+
+// many-to-many
+Ref: B.Id <> A.Id  
+//----------------------------------------------//
