@@ -18,7 +18,7 @@ public class ReviewValidation
         if (value == Guid.Empty)
         {
             yield return new ValidationResult(
-                $"The {nameof(fieldName)} field is not a valid ID.", new[] {nameof(fieldName)});
+                $"The {nameof(fieldName)} field is not a valid ID.", new[] {fieldName});
         }
     }
 }

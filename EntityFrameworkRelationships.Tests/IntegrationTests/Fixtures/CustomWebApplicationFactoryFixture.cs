@@ -1,4 +1,4 @@
-namespace EntityFrameworkRelationships.Tests.IntegrationTests;
+namespace EntityFrameworkRelationships.Tests.IntegrationTests.Fixtures;
 
 [CollectionDefinition("SharedContext")]
 public class CustomWebApplicationFactoryFixture : ICollectionFixture<CustomWebApplicationFactory<Program>>

@@ -1,4 +1,7 @@
 using System.Collections;
+using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
+using EntityFrameworkRelationships.Web.Data.Validations;
 
 namespace EntityFrameworkRelationships.Web.DTOs;
 
@@ -21,8 +24,23 @@ public record BookDetailDto : BookBaseDto
     public IEnumerable<AuthorPlaneDto> Authors { get; init; }
 }
 
-public record BookForCreatingUpdatingDto : BookBaseDto
+public record BookForCreatingDto : IValidatableObject
 {
-    public IEnumerable<Guid> Authors { get; init; }
+    [Required] public string? Title { get; init; }
+    [Required] public DateTime? PublishedOn { get; init; }
+    [Required] public BookImageDto? Image { get; init; }
+    [Required] public IEnumerable<Guid>? Authors { get; init; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        var validationResult = new List<ValidationResult>();
+        validationResult.AddRange(BookValidation.ValidateTitle(Title!, nameof(Title)));
+
+        return validationResult;
+    }
 };
 
+public record BookForUpdatingDto : BookForCreatingDto
+{
+    [Required] public Guid? Id { get; init; }
+}

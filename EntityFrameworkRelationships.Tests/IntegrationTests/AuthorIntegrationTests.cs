@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using EntityFrameworkRelationships.Tests.Helpers;
+using EntityFrameworkRelationships.Tests.IntegrationTests.Fixtures;
 using EntityFrameworkRelationships.Web.DTOs;
 
 namespace EntityFrameworkRelationships.Tests.IntegrationTests;
@@ -30,10 +32,10 @@ public class AuthorIntegrationTests
         var response = await _httpClient.GetAsync($"{BasePath}");
         var payloadString = await response.Content.ReadAsStringAsync();
         var payloadObject = JsonSerializer.Deserialize<List<AuthorDto>>(payloadString, _serializerOptions);
-        var item = payloadObject?.SingleOrDefault(x => x.Name == "Sheldon Cooper");
+
         
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("Sheldon.Cooper@email.com", item?.Email);
+        Assert.True(payloadObject?.Count >= DbHelper.Authors.Count);
     }
 
     #endregion

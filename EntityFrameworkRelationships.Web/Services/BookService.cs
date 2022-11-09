@@ -32,20 +32,21 @@ public class BookService : IBookService
         return await query.SingleOrDefaultAsync(x => x.Id == id);
     }
 
-    public async Task<BookDto> Create(BookForCreatingUpdatingDto item)
+    public async Task<BookDto> Create(BookForCreatingDto item)
     {
         var newItem = new Book()
         {
             Id = new Guid(),
-            Title = item.Title,
-            PublishedOn = item.PublishedOn,
+            Title = item.Title!,
+            PublishedOn = item.PublishedOn!.Value.ToUniversalTime(),
             Image = new BookImage
             {
-                Url = item.Image.Url,
-                Alt = item.Image.Alt
+                Url = item.Image!.Url,
+                Alt = item.Image!.Alt
             }
         };
 
+        newItem.AuthorsLink = new List<BookAuthor>();
         foreach (var authorId in item.Authors)
         {
             newItem.AuthorsLink.Add(new BookAuthor {BookId = newItem.Id, AuthorId = authorId});
@@ -59,7 +60,7 @@ public class BookService : IBookService
         return dto;
     }
 
-    public async Task<BookDto> Update(Guid id, BookForCreatingUpdatingDto item)
+    public async Task<BookDto> Update(Guid id, BookForUpdatingDto item)
     {
         var currentItem = await _entity
             .Include(x => x.Image)
@@ -72,12 +73,12 @@ public class BookService : IBookService
         }
 
         // Main update
-        currentItem.Title = item.Title;
-        currentItem.PublishedOn = item.PublishedOn;
+        currentItem.Title = item.Title!;
+        currentItem.PublishedOn = item.PublishedOn!.Value.ToUniversalTime();
 
         // Image update
-        currentItem.Image.Url = item.Image.Url;
-        currentItem.Image.Alt = item.Image.Alt;
+        currentItem.Image.Url = item.Image!.Url;
+        currentItem.Image.Alt = item.Image!.Alt;
 
         // Authors update
         var authorsToAdd = item.Authors

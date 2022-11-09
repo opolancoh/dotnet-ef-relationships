@@ -8,13 +8,13 @@ using EntityFrameworkRelationships.Web.DTOs;
 namespace EntityFrameworkRelationships.Tests.IntegrationTests;
 
 [Collection("SharedContext")]
-public class ReviewIntegrationTests 
+public class BookIntegrationTests
 {
     private readonly JsonSerializerOptions _serializerOptions;
     private readonly HttpClient _httpClient;
-    private const string BasePath = "/api/reviews";
+    private const string BasePath = "/api/books";
 
-    public ReviewIntegrationTests(CustomWebApplicationFactory<Program> factory) 
+    public BookIntegrationTests(CustomWebApplicationFactory<Program> factory)
     {
         _httpClient = factory.CreateClient();
 
@@ -31,29 +31,36 @@ public class ReviewIntegrationTests
     {
         var response = await _httpClient.GetAsync($"{BasePath}");
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<List<ReviewDto>>(payloadString, _serializerOptions);
+        var payloadObject = JsonSerializer.Deserialize<List<BookDetailDto>>(payloadString, _serializerOptions);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.True(payloadObject?.Count >= DbHelper.Reviews.Count);
+        Assert.True(payloadObject?.Count >= DbHelper.Books.Count);
     }
 
     #endregion
 
     #region GeById
 
-    [Fact]
-    public async Task GeById_ShouldReturnOnlyOneItem()
+    [Theory]
+    [MemberData(nameof(BookIds))]
+    public async Task GeById_ShouldReturnOnlyOneItem(Guid itemId)
     {
-        var existingItem = DbHelper.Reviews.SingleOrDefault(x => x.Id == DbHelper.ReviewId1);
+        var existingItem = DbHelper.Books.SingleOrDefault(x => x.Id == itemId);
 
         var response = await _httpClient.GetAsync($"{BasePath}/{existingItem?.Id}");
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<ReviewDto>(payloadString, _serializerOptions);
+        var payloadObject = JsonSerializer.Deserialize<BookDetailDto>(payloadString, _serializerOptions);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(existingItem?.Comment, payloadObject?.Comment);
-        Assert.Equal(existingItem?.Rating, payloadObject?.Rating);
-        Assert.Equal(existingItem?.BookId, payloadObject?.BookId);
+        Assert.Equal(existingItem?.Title, payloadObject?.Title);
+        Assert.Equal(existingItem?.PublishedOn, payloadObject?.PublishedOn);
+        Assert.Equal(existingItem?.Image.Url, payloadObject?.Image.Url);
+        Assert.Equal(existingItem?.Image.Alt, payloadObject?.Image.Alt);
+        // Authors
+        var existingAuthors = existingItem?.AuthorsLink;
+        var payloadAuthors = payloadObject?.Authors;
+        Assert.Equal(existingAuthors?.Count, payloadAuthors?.Count());
+        Assert.All(existingAuthors, expected => payloadAuthors.Any(x => x.Id == expected.AuthorId));
     }
 
     [Fact]
@@ -85,22 +92,38 @@ public class ReviewIntegrationTests
     {
         var newItem = new
         {
-            Comment = "This is a comment 01",
-            Rating = 3,
-            BookId = DbHelper.BookId1
+            Title = "New Book 01",
+            PublishedOn = new DateTime(2022, 01, 12).ToUniversalTime(),
+            Image = new
+            {
+                Url = "https://new-item.com",
+                Alt = "New Book 01"
+            },
+            Authors = new List<Guid>
+            {
+                DbHelper.AuthorId1,
+                DbHelper.AuthorId2,
+                DbHelper.AuthorId3,
+            }
         };
         var payload = JsonSerializer.Serialize(newItem, _serializerOptions);
         HttpContent httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
 
         var response = await _httpClient.PostAsync($"{BasePath}", httpContent);
         var payloadString = await response.Content.ReadAsStringAsync();
-        var payloadObject = JsonSerializer.Deserialize<ReviewDto>(payloadString, _serializerOptions);
+        var payloadObject = JsonSerializer.Deserialize<BookDto>(payloadString, _serializerOptions);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.NotEqual(Guid.Empty, payloadObject?.Id);
-        Assert.Equal(newItem.Comment, payloadObject?.Comment);
-        Assert.Equal(newItem.Rating, payloadObject?.Rating);
-        Assert.Equal(newItem.BookId, payloadObject?.BookId);
+        Assert.Equal(newItem?.Title, payloadObject?.Title);
+        Assert.Equal(newItem?.PublishedOn, payloadObject?.PublishedOn);
+        Assert.Equal(newItem?.Image.Url, payloadObject?.Image.Url);
+        Assert.Equal(newItem?.Image.Alt, payloadObject?.Image.Alt);
+        // Authors
+        var existingAuthors = newItem?.Authors;
+        var payloadAuthors = payloadObject?.Authors;
+        Assert.Equal(existingAuthors?.Count, payloadAuthors?.Count());
+        Assert.All(existingAuthors, expected => payloadAuthors.Any(x => x == expected));
     }
 
     [Theory]
@@ -142,23 +165,41 @@ public class ReviewIntegrationTests
         // Create a new item
         var newItem = new
         {
-            Comment = "This is a comment 01",
-            Rating = 3,
-            BookId = DbHelper.BookId1
+            Title = "This is a new book 01",
+            PublishedOn = new DateTime(2022, 01, 12).ToUniversalTime(),
+            Image = new
+            {
+                Url = "https://new-item.com",
+                Alt = "New Book 01"
+            },
+            Authors = new List<Guid>
+            {
+                DbHelper.AuthorId1,
+            }
         };
         var newItemPayload = JsonSerializer.Serialize(newItem, _serializerOptions);
         var newItemHttpContent = new StringContent(newItemPayload, Encoding.UTF8, "application/json");
         var newItemResponse = await _httpClient.PostAsync($"{BasePath}", newItemHttpContent);
         var newItemPayloadString = await newItemResponse.Content.ReadAsStringAsync();
-        var newItemPayloadObject = JsonSerializer.Deserialize<ReviewDto>(newItemPayloadString, _serializerOptions);
+        var newItemPayloadObject = JsonSerializer.Deserialize<BookDto>(newItemPayloadString, _serializerOptions);
         var newItemId = newItemPayloadObject?.Id.ToString();
 
         // Update the created item
         var itemToUpdate = new
         {
             Id = newItemId,
-            Comment = "This is a comment 01 Updated",
-            Rating = 5,
+            Title = "This is a new book 01 (updated)",
+            PublishedOn = new DateTime(2022, 01, 24).ToUniversalTime(),
+            Image = new
+            {
+                Url = "https://new-item-updated.com",
+                Alt = "New Book 01 [updated]"
+            },
+            Authors = new List<Guid>
+            {
+                DbHelper.AuthorId2,
+                DbHelper.AuthorId3,
+            }
         };
         var payload = JsonSerializer.Serialize(itemToUpdate, _serializerOptions);
         var httpContent = new StringContent(payload, Encoding.UTF8, "application/json");
@@ -167,12 +208,19 @@ public class ReviewIntegrationTests
         // Ensure the item has been changed getting the item from the DB
         var updatedItemResponse = await _httpClient.GetAsync($"{BasePath}/{newItemId}");
         var updatedItemPayloadString = await updatedItemResponse.Content.ReadAsStringAsync();
-        var updatedItemPayloadObject = JsonSerializer.Deserialize<ReviewDto>(updatedItemPayloadString, _serializerOptions);
+        var updatedItemPayloadObject = JsonSerializer.Deserialize<BookDetailDto>(updatedItemPayloadString, _serializerOptions);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        Assert.Equal(itemToUpdate.Comment, updatedItemPayloadObject?.Comment);
-        Assert.Equal(itemToUpdate.Rating, updatedItemPayloadObject?.Rating);
-        Assert.Equal(newItem.BookId, updatedItemPayloadObject?.BookId);
+        Assert.NotEqual(Guid.Empty, updatedItemPayloadObject?.Id);
+        Assert.Equal(itemToUpdate?.Title, updatedItemPayloadObject?.Title);
+        Assert.Equal(itemToUpdate?.PublishedOn, updatedItemPayloadObject?.PublishedOn);
+        Assert.Equal(itemToUpdate?.Image.Url, updatedItemPayloadObject?.Image.Url);
+        Assert.Equal(itemToUpdate?.Image.Alt, updatedItemPayloadObject?.Image.Alt);
+        // Authors
+        var existingAuthors = itemToUpdate?.Authors;
+        var payloadAuthors = updatedItemPayloadObject?.Authors;
+        Assert.Equal(existingAuthors?.Count, payloadAuthors?.Count());
+        Assert.All(existingAuthors, expected => payloadAuthors.Any(x => x.Id == expected));
     }
 
     [Fact]
@@ -182,8 +230,17 @@ public class ReviewIntegrationTests
         var itemToUpdate = new
         {
             Id = itemId,
-            Comment = "Comment",
-            Rating = 3
+            Title = "This is a new book 01",
+            PublishedOn = new DateTime(2022, 01, 12).ToUniversalTime(),
+            Image = new
+            {
+                Url = "https://new-item.com",
+                Alt = "New Book 01"
+            },
+            Authors = new List<Guid>
+            {
+                DbHelper.AuthorId1,
+            }
         };
 
         var payload = JsonSerializer.Serialize(itemToUpdate, _serializerOptions);
@@ -226,6 +283,7 @@ public class ReviewIntegrationTests
 
     #endregion
 
+
     #region Remove
 
     [Fact]
@@ -234,15 +292,23 @@ public class ReviewIntegrationTests
         // Create a new item
         var newItem = new
         {
-            Comment = "This is a comment 01",
-            Rating = 3,
-            BookId = DbHelper.BookId1
+            Title = "This is a new book 01",
+            PublishedOn = new DateTime(2022, 01, 12).ToUniversalTime(),
+            Image = new
+            {
+                Url = "https://new-item.com",
+                Alt = "New Book 01"
+            },
+            Authors = new List<Guid>
+            {
+                DbHelper.AuthorId1,
+            }
         };
         var newItemPayload = JsonSerializer.Serialize(newItem, _serializerOptions);
         var newItemHttpContent = new StringContent(newItemPayload, Encoding.UTF8, "application/json");
         var newItemResponse = await _httpClient.PostAsync($"{BasePath}", newItemHttpContent);
         var newItemPayloadString = await newItemResponse.Content.ReadAsStringAsync();
-        var newItemPayloadObject = JsonSerializer.Deserialize<AuthorDto>(newItemPayloadString, _serializerOptions);
+        var newItemPayloadObject = JsonSerializer.Deserialize<BookDto>(newItemPayloadString, _serializerOptions);
 
         // Remove the created item
         var response = await _httpClient.DeleteAsync($"{BasePath}/{newItemPayloadObject?.Id}");
@@ -277,33 +343,118 @@ public class ReviewIntegrationTests
 
     public static TheoryData<string[], object> MissingRequiredFieldsBase => new()
     {
-        {new[] {"The Comment field is required."}, new {Rating = 3, BookId = new Guid()}},
-        {new[] {"The Rating field is required."}, new {Comment = "Comment", BookId = new Guid()}},
-        {new[] {"The Comment field is required."}, new {Comment = "", Rating = 3, BookId = new Guid()}}
+        {
+            new[]
+            {
+                "The Title field is required.",
+                "The PublishedOn field is required.",
+                "The Image field is required.",
+                "The Authors field is required."
+            },
+            new { }
+        },
+        {
+            new[] {"The Title field is required."}, new
+            {
+                PublishedOn = new DateTime(2022, 01, 12).ToUniversalTime(),
+                Image = new
+                {
+                    Url = "https://new-item.com",
+                    Alt = "New Book 01"
+                },
+                Authors = new List<Guid> {DbHelper.AuthorId1}
+            }
+        },
+        {
+            new[] {"The PublishedOn field is required."}, new
+            {
+                Title = "New Book 01",
+                Image = new
+                {
+                    Url = "https://new-item.com",
+                    Alt = "New Book 01"
+                },
+                Authors = new List<Guid> {DbHelper.AuthorId1}
+            }
+        },
+        {
+            new[] {"The Image field is required."}, new
+            {
+                Title = "New Book 01",
+                PublishedOn = new DateTime(2022, 01, 12).ToUniversalTime(),
+                Authors = new List<Guid> {DbHelper.AuthorId1}
+            }
+        },
+        {
+            new[] {"The Authors field is required."}, new
+            {
+                Title = "New Book 01",
+                PublishedOn = new DateTime(2022, 01, 12).ToUniversalTime(),
+                Image = new
+                {
+                    Url = "https://new-item.com",
+                    Alt = "New Book 01"
+                }
+            }
+        },
     };
 
     public static TheoryData<string[], object> MissingRequiredFieldsForCreating => new()
     {
-        {
-            new[]
-            {
-                "The Comment field is required.",
-                "The Rating field is required.",
-                "The BookId field is required."
-            },
-            new { }
-        },
-        {new[] {"The BookId field is required."}, new {Comment = "Comment", Rating = 3}},
     };
 
     public static TheoryData<string[], object> MissingRequiredFieldsForUpdating => new()
     {
-        {new[] {"The Id field is required."}, new {Comment = "Comment", Rating = 3, BookId = new Guid()}},
+        {
+            new[]
+            {
+                "The Id field is required.",
+                "The Title field is required.",
+                "The PublishedOn field is required.",
+                "The Image field is required.",
+                "The Authors field is required."
+            },
+            new { }
+        },
+        {
+            new[] {"The Id field is required."}, new
+            {
+                Title = "New Book 01",
+                PublishedOn = new DateTime(2022, 01, 12).ToUniversalTime(),
+                Image = new
+                {
+                    Url = "https://new-item.com",
+                    Alt = "New Book 01"
+                },
+                Authors = new List<Guid> {DbHelper.AuthorId1}
+            }
+        },
     };
 
     public static TheoryData<string[], object> InvalidFields => new()
     {
-        {new[] {"The Rating field must be between 1 and 5."}, new {Id = new Guid(), Comment = "Comment", Rating = 0, BookId = new Guid()}},
-        {new[] {"The Rating field must be between 1 and 5."}, new {Id = new Guid(), Comment = "Comment", Rating = 6, BookId = new Guid()}},
+        {
+            new[] {"The Title field is invalid."}, new
+            {
+                Id = DbHelper.BookId1,
+                Title = "New Book 01 *",
+                PublishedOn = new DateTime(2022, 01, 12).ToUniversalTime(),
+                Image = new
+                {
+                    Url = "https://new-item.com",
+                    Alt = "New Book 01"
+                },
+                Authors = new List<Guid> {DbHelper.AuthorId1}
+            }
+        },
+    };
+
+    public static TheoryData<Guid> BookIds => new()
+    {
+        {DbHelper.BookId1},
+        {DbHelper.BookId2},
+        {DbHelper.BookId3},
+        {DbHelper.BookId4},
+        {DbHelper.BookId5},
     };
 }

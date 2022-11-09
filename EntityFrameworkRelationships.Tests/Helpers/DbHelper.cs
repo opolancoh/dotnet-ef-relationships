@@ -23,7 +23,7 @@ public static class DbHelper
     public static Guid ReviewId7 = new Guid("cb808930-c118-4bb6-95d5-d8b4f7d41e75");
     public static Guid ReviewId8 = new Guid("df49dc81-da48-40a8-9bbd-d992ac98aa54");
 
-    public static IEnumerable<Author> Authors =>
+    public static List<Author> Authors =>
         new List<Author>
         {
             new()
@@ -46,7 +46,7 @@ public static class DbHelper
             }
         };
 
-    public static IEnumerable<Book> Books =>
+    public static List<Book> Books =>
         new List<Book>
         {
             new()
@@ -135,7 +135,6 @@ public static class DbHelper
                 }
             },
         };
-
 
     public static List<Review> Reviews =>
         new List<Review>

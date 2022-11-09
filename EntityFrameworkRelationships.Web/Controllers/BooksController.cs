@@ -37,7 +37,7 @@ public class BooksController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<BookDto>> Create(BookForCreatingUpdatingDto item)
+    public async Task<ActionResult<BookDto>> Create(BookForCreatingDto item)
     {
         var newItem = await _service.Create(item);
 
@@ -45,7 +45,7 @@ public class BooksController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, BookForCreatingUpdatingDto item)
+    public async Task<IActionResult> Update(Guid id, BookForUpdatingDto item)
     {
         try
         {

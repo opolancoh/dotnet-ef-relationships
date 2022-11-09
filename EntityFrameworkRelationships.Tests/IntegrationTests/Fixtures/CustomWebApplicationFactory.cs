@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace EntityFrameworkRelationships.Tests.IntegrationTests;
+namespace EntityFrameworkRelationships.Tests.IntegrationTests.Fixtures;
 
 public class CustomWebApplicationFactory<TProgram> : WebApplicationFactory<TProgram> where TProgram : class
 {
