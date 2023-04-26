@@ -42,3 +42,9 @@ public record ReviewForUpdatingDto : IValidatableObject
         return validationResult;
     }
 };
+
+public record ReviewPlaneDto
+{
+    public string Comment { get; init; }
+    public int Rating { get; init; }
+};

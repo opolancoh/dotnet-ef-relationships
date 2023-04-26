@@ -1,3 +1,4 @@
+using EntityFrameworkRelationships.Web.Data;
 using EntityFrameworkRelationships.Web.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,6 +26,7 @@ if (app.Environment.IsDevelopment())
         // Hide Schema section
         options.DefaultModelsExpandDepth(-1);
     });
+    // DataHelper.Seed(app);
 }
 
 app.UseHttpsRedirection();

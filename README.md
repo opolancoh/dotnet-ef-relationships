@@ -36,6 +36,21 @@ Apply the existing migration (run this command in the application root folder):
 dotnet ef database update --project EntityFrameworkRelationships.Web
 ```
 
+#### Add Migration
+
+```sh
+dotnet ef migrations add "InitialMigration" --project EntityFrameworkRelationships.Web
+```
+
+#### Data Seed
+
+To add initial data just uncomment this line in Program.cs:
+
+```cs
+// DataHelper.Seed(app);
+```
+
+
 ## Run and test the application
 Run the application and make sure it's listening on port 7161.
 

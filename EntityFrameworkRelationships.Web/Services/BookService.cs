@@ -49,7 +49,7 @@ public class BookService : IBookService
         newItem.AuthorsLink = new List<BookAuthor>();
         foreach (var authorId in item.Authors)
         {
-            newItem.AuthorsLink.Add(new BookAuthor {BookId = newItem.Id, AuthorId = authorId});
+            newItem.AuthorsLink.Add(new BookAuthor { BookId = newItem.Id, AuthorId = authorId });
         }
 
         _entity.Add(newItem);
@@ -83,7 +83,7 @@ public class BookService : IBookService
         // Authors update
         var authorsToAdd = item.Authors
             .Where(x => currentItem.AuthorsLink.All(y => y.AuthorId != x))
-            .Select(x => new BookAuthor {BookId = id, AuthorId = x});
+            .Select(x => new BookAuthor { BookId = id, AuthorId = x });
         foreach (var authorToAdd in authorsToAdd)
         {
             currentItem.AuthorsLink.Add(authorToAdd);
@@ -107,7 +107,7 @@ public class BookService : IBookService
 
     public async Task Remove(Guid id)
     {
-        var item = new Book {Id = id};
+        var item = new Book { Id = id };
 
         _entity.Remove(item);
 
@@ -189,7 +189,13 @@ public class BookService : IBookService
                     {
                         Id = y.Author.Id,
                         Name = y.Author.Name
-                    })
+                    }),
+                Reviews = x.Reviews.Select(r => new ReviewPlaneDto
+                    {
+                        Comment = r.Comment,
+                        Rating = r.Rating
+                    }
+                )
             });
     }
 }

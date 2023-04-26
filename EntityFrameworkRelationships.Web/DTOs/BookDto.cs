@@ -22,6 +22,7 @@ public record BookDetailDto : BookBaseDto
 {
     public Guid Id { get; init; }
     public IEnumerable<AuthorPlaneDto> Authors { get; init; }
+    public IEnumerable<ReviewPlaneDto> Reviews { get; init; }
 }
 
 public record BookForCreatingDto : IValidatableObject

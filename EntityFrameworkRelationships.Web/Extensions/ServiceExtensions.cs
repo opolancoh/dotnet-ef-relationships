@@ -29,5 +29,7 @@ public static class ServiceExtensions
     public static void ConfigureSqlContext(this IServiceCollection services,
         IConfiguration configuration) =>
         services.AddDbContext<ApplicationDbContext>(opts =>
-            opts.UseNpgsql(configuration.GetConnectionString("PostgresConnection")));
+            opts
+                .EnableSensitiveDataLogging()
+                .UseNpgsql(configuration.GetConnectionString("PostgresConnection")));
 }
